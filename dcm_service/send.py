@@ -77,4 +77,4 @@ for _file in args.files:
     ]
     _args_str = " ".join(_args)
     print(f" - Run {_args_str}")
-    process = subprocess.run(_args, capture_output=True, check=True, shell=True)
+    process = subprocess.run(_args_str, capture_output=True, check=True, shell=True)
