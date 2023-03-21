@@ -8,7 +8,7 @@ import pandas as pd
 @dataclass(frozen=True)
 class Identifier:
     """
-    Mapping to re-identify a pseudonymized file.
+    Mapping of data needed to re-identify a pseudonymized file.
     """
 
     siuid: str  # series instance uid
@@ -20,6 +20,13 @@ class Identifier:
 
 
 class IdentifierDict:
+    """
+    The identifier dict allows to reference identifiers by different ids or pseudonyms.
+
+    It is important for re-identification of pseudonymized data and it can also be
+    used to store re-identification information in a csv file.
+    """
+
     def __init__(self):
         self.by_siuid: Dict[str, Identifier] = {}
         self.by_pseudo_siuid: Dict[str, Identifier] = {}
@@ -33,6 +40,13 @@ class IdentifierDict:
         ]
 
     def add(self, identifier: Identifier):
+        """
+        Add an identifier to the identifier dict.
+
+        Parameters
+        ----------
+        identifier: Identifier
+        """
         self.by_siuid[identifier.siuid] = identifier
         self.by_pseudo_siuid[identifier.pseudo_siuid] = identifier
 
@@ -49,12 +63,36 @@ class IdentifierDict:
         ]
 
     def __getitem__(self, id_or_pseudonym: str) -> Union[Identifier, List[Identifier]]:
+        """
+        Get an identifier by id or pseudonym.
+
+        If the id or pseudonym is a patient id or its according pseudonym, a
+        list is returned because there may be multiple files for the same patient.
+
+        Parameters
+        ----------
+        id_or_pseudonym: str
+
+        Returns
+        -------
+        Identifier or list of Identifier
+        """
         for _dict in self.dicts:
             if id_or_pseudonym in _dict:
                 return _dict[id_or_pseudonym]
         raise ValueError(f"Cannot find identifier for {id_or_pseudonym}")
 
     def to_csv(self, filename: str, sort_by: List[str] = ["pid", "siuid"]):
+        """
+        Write an identification dict to a csv file.
+
+        Parameters
+        ----------
+        filename: str
+            the name of the csv file
+        sort_by: list of str
+            optional list to sort values before writing
+        """
         data = dict((param, []) for param in Identifier.__annotations__.keys())
         for identifier in self.by_siuid.values():
             for key, _list in data.items():
@@ -65,7 +103,15 @@ class IdentifierDict:
         dataframe.to_csv(filename, index=False)
 
     @classmethod
-    def from_csv(cls, filename):
+    def from_csv(cls, filename: str):
+        """
+        Parse an identification dict from a csv file.
+
+        Parameters
+        ----------
+        filename: str
+            the csv file
+        """
         id_dict = cls()
         with open(filename, mode="r") as f:
             reader = csv.DictReader(f)
@@ -75,17 +121,3 @@ class IdentifierDict:
                 id_dict.add(identifier)
         return id_dict
 
-if __name__ == "__main__":
-    id1 = Identifier(siuid="1", pseudo_siuid="p1", filename="a.dcm", pid="bat", pseudo_pid="bat1")
-    id2 = Identifier(siuid="2", pseudo_siuid="p2", filename="b.dcm", pid="pat", pseudo_pid="pat2")
-    id3 = Identifier(siuid="3", pseudo_siuid="p3", filename="c.dcm", pid="pat", pseudo_pid="pat2")
-
-    id_dict = IdentifierDict()
-    id_dict.add(id1)
-    id_dict.add(id2)
-    id_dict.add(id3)
-    id_dict.to_csv("test.csv")
-
-    id_dict = IdentifierDict.from_csv("test.csv")
-    print(id_dict["pat"])
-    print(id_dict["1"])
