@@ -1,3 +1,7 @@
+"""
+Wrapper around the DICOM Toolkit send script which uses
+pre-configured DICOM nodes from a yaml file.
+"""
 import argparse
 import subprocess
 from typing import Dict, List
@@ -30,7 +34,25 @@ with open(args.node_yml, mode="r") as f:
     nodes = yaml.safe_load(f.read())
 
 
-def match_node(node: Dict, _str: str):
+def match_node(node: Dict[str, Any], _str: str) -> bool:
+    """
+    Filter function to match any node with a given string.
+
+    This function will check if the given string matches an id,
+    an AET or an alias.
+
+    Parameters
+    ----------
+    node: dict
+        dict of different parameters describing a node (parsed from args.node_yml)
+    _str: str
+        the string to match to the different parameters
+
+    Returns
+    -------
+    bool
+        it the string matches the node
+    """
     try:
         _id = int(_str)
         if _id == node["Id"]:
