@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dcm_tools"
+version = "0.0.1"
+authors = [
+  { name="Tamino Huxohl", email="thuxohl@hdz-nrw.de"},
+  
+]
+description = "Tools to deal with DICOM files"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "dicom-anonymizer>=1.0.10",
+    "pandas>=1.5.2",
+    "pydicom>=2.3.1",
+    "PyYAML>=6.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pLeminoq/dcm_tools.git"
