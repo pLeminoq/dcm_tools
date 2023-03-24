@@ -11,6 +11,9 @@ import pydicom
 
 from dcm_tools.pseudonym.lib import Identifier, IdentifierDict
 
+cmd_name = "pseudonymize"
+cmd_desc = "Pseudonmyize a directory of DICOM files"
+
 
 def list_files_recursive(filename: str) -> List[str]:
     """
@@ -61,11 +64,7 @@ def generate_pseudonym(prefix: str = "ANONYM_", k: int = 12) -> str:
     return f"{prefix}{_id}"
 
 
-def create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Created pseudonymized versions of a DICOM dataset",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "in_dir", type=str, help="input directory containing the DICOM dataset"
     )
@@ -117,13 +116,9 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--pseudo_len", type=int, default=12, help="length of the generated pseudonym"
     )
-    return parser
 
 
-def main():
-    parser = create_parser()
-    args = parser.parse_args()
-
+def main(args):
     args.pseudonymized_dir = os.path.join(args.out_dir, args.pseudonymized_dir)
     args.header_dir = os.path.join(args.out_dir, args.header_dir)
     args.identification_csv = os.path.join(args.out_dir, args.identification_csv)
@@ -204,4 +199,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description=cmd_desc,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.set_defaults(func=main)
+
+    add_args(parser)
+
+    args = parser.parse_args()
+    args.func(args)
