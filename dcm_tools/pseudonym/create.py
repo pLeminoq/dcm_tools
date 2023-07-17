@@ -6,7 +6,7 @@ import shutil
 import string
 from typing import List
 
-from dicomanonymizer.simpledicomanonymizer import anonymize_dataset
+from dicomanonymizer.simpledicomanonymizer import anonymize_dataset, keep as action_keep
 import pydicom
 
 from dcm_tools.pseudonym.lib import Identifier, IdentifierDict
@@ -116,6 +116,17 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--pseudo_len", type=int, default=12, help="length of the generated pseudonym"
     )
+    parser.add_argument(
+        "--keep_private_tags",
+        action="store_true",
+        help="keep all private tags",
+    )
+    parser.add_argument(
+        "--keep",
+        type=str,
+        nargs="*",
+        help="define tags that should not be removed/modified",
+    )
 
 
 def main(args):
@@ -132,7 +143,7 @@ def main(args):
 
         if not args.force:
             assert (
-                os.listdir(args.out_dir) == 0
+                len(os.listdir(args.out_dir)) == 0
             ), f"{args.out_dir} is not empty - please chose an empty directory or use the -f/--force option"
     shutil.rmtree(args.out_dir, ignore_errors=True)
     os.makedirs(args.out_dir)
@@ -144,6 +155,23 @@ def main(args):
     _generate_pseudo = lambda: generate_pseudonym(
         prefix=args.pseudo_prefix, k=args.pseudo_len
     )
+
+    tags_to_keep = []
+    for tag in args.keep:
+        assert tag.startswith(
+            "0x"
+        ), f"Tag {tag} is not in hex notation. Please use a hex Notation (e.g. 0x00010002) to define tags"
+        tag = tag[2:]
+        assert (
+            len(tag) == 8
+        ), f"Tag should have a length of 8 in hex notation, but was {tag} with len {len(tag)}"
+        tag = (int(tag[:4], base=16), int(tag[4:], base=16))
+        tags_to_keep.append(tag)
+
+    extra_anonymization_rules = dict([(tag, action_keep) for tag in tags_to_keep])
+    print(f"Tags to keep:")
+    for k, v in extra_anonymization_rules.items():
+        print(f"{k}: {v}")
 
     # process input directory
     for f in list_files_recursive(args.in_dir):
@@ -168,7 +196,11 @@ def main(args):
         pseudo_pid = pseudo_by_pid[pid]
 
         # create pseudonymized DICOM file
-        anonymize_dataset(dcm)
+        anonymize_dataset(
+            dcm,
+            extra_anonymization_rules=extra_anonymization_rules,
+            delete_private_tags=not args.keep_private_tags,
+        )
         dcm.SeriesInstanceUID = pseudo_siuid
         dcm.PatientID = "" if args.no_patient_id else pseudo_pid
         # store
