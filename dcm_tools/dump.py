@@ -9,7 +9,6 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument("file", type=str, help="the DICOM file whose header is dumped")
 
 def main(args):
-    print(args.file)
     print(pydicom.dcmread(args.file))
 
 if __name__ == "__main__":
