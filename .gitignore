@@ -1,5 +1,6 @@
 dcm_tools.egg-info
 
+.data/
 data/
 
 venv/
