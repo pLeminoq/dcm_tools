@@ -1,10 +1,11 @@
 import argparse
 
+import dcm_tools.diff as diff
 import dcm_tools.dump as dump
 import dcm_tools.pseudonym.create as pseudonymize
 import dcm_tools.send as send
 
-cmds = [dump, pseudonymize, send]
+cmds = [diff, dump, pseudonymize, send]
 
 parser = argparse.ArgumentParser(description="DICOM tools", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 subparsers = parser.add_subparsers(required=True)
