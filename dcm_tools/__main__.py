@@ -4,8 +4,9 @@ import dcm_tools.diff as diff
 import dcm_tools.dump as dump
 import dcm_tools.pseudonym.create as pseudonymize
 import dcm_tools.send as send
+import dcm_tools.sort_files as sort_files
 
-cmds = [diff, dump, pseudonymize, send]
+cmds = [diff, dump, pseudonymize, send, sort_files]
 
 parser = argparse.ArgumentParser(description="DICOM tools", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 subparsers = parser.add_subparsers(required=True)
