@@ -35,8 +35,14 @@ def add_args(parser: argparse.ArgumentParser):
     """
     Add arguments for this command to an argument parser.
     """
-    parser.add_argument("dir_in", type=str, help="input directory which is searched for files")
-    parser.add_argument("--dir_out", type=str, help="output directory - defaults to the input directory if not given")
+    parser.add_argument(
+        "dir_in", type=str, help="input directory which is searched for files"
+    )
+    parser.add_argument(
+        "--dir_out",
+        type=str,
+        help="output directory - defaults to the input directory if not given",
+    )
     parser.add_argument(
         "-m",
         "--move",
@@ -46,20 +52,30 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "-q", "--quiet", action="store_true", help="do not print any output"
     )
+    parser.add_argument("-d", "--dry", action="store_true", help="perform a dry run")
 
 
 def main(args):
     if args.dir_out is None:
         args.dir_out = args.dir_in
 
-    _print = (lambda *args: None) if args.quiet else print
+    _print = (lambda *args: None) if args.quiet or args.dry else print
+
     copy_or_move = shutil.move if args.move else shutil.copyfile
+    if args.dry:
+        command_str = "Move" if args.move else "Copy"
+        copy_or_move = lambda *args: print(f"{command_str}: {args[0]} -> {args[1]}")
+
+    directories = set()
     for file_in in recursive_listdir(args.dir_in):
+        directories.add(os.path.dirname(file_in))
+
         dcm = pydicom.dcmread(file_in, stop_before_pixels=True)
 
         patient_dir = f"{dcm.PatientName.family_name.lower()}_{dcm.PatientName.given_name.lower()}-{dcm.PatientID}"
         patient_dir = os.path.join(args.dir_out, patient_dir)
-        os.makedirs(patient_dir, exist_ok=True)
+        if not args.dry:
+            os.makedirs(patient_dir, exist_ok=True)
 
         file_out = dcm.SeriesInstanceUID.replace(".", "_") + ".dcm"
         file_out = os.path.join(patient_dir, file_out)
@@ -70,6 +86,11 @@ def main(args):
 
         _print(f"{file_in} -> {file_out}")
         copy_or_move(file_in, file_out)
+
+    if args.move:
+        delete = (lambda f: print(f"Delete: {f}")) if args.dry else shutil.rmtree
+        for _dir in sorted(directories):
+            delete(_dir)
 
 
 if __name__ == "__main__":
