@@ -5,6 +5,8 @@ import shutil
 
 import pydicom
 
+from dcm_tools.field_accessor import build_from_str
+
 cmd_name = "sort_files"
 cmd_desc = "Sort DICOM files into a directory with the structure: <patient_name>-<patient_id>/<series_instance_uid>.dcm"
 
@@ -14,7 +16,15 @@ def dry_methods():
     shutil.copyfile = lambda *args: print(f"            Copy {args[0]} -> {args[1]}")
     os.remove = lambda *args: print(f"          Remove {args[0]}")
     os.rmdir = lambda *args: print(f"Remove directory {args[0]}")
-    os.makedirs = lambda *args, **kwargs: print(f"  Make directory {args[0]}")
+
+    _dirs = set()
+    def dry_make_dirs(*args, **kwargs):
+        _dir = args[0]
+        if _dir not in _dirs:
+            print(f"  Make directory {args[0]}")
+            _dirs.add(_dir)
+        
+    os.makedirs = dry_make_dirs
 
 
 def recursive_listdir(_file: str) -> List[str]:
@@ -49,7 +59,31 @@ def delete_empty_subdirectories(_dir: str):
     list(map(lambda d: os.rmdir(d), subdirs))
 
 
-def sort_files(dir_in: str, dir_out: str, move: bool, quiet: bool, dry: bool):
+def build_formatter(format_fields: List[str]):
+    def formatter(filename: str, dcm: pydicom.Dataset):
+        if format_fields is None:
+            filename = os.path.basename(filename)
+            filename, _ = os.path.splitext(filename)
+            return filename + ".dcm"
+
+        filename = map(lambda field: build_from_str(field), format_fields)
+        filename = map(lambda _formatter: _formatter(dcm), filename)
+        filename = map(str, filename)
+        filename = map(lambda _str: _str.replace(" ", "_"), filename)
+        filename = "-".join(filename)
+        return filename + ".dcm"
+
+    return formatter
+
+
+def sort_files(
+    dir_in: str,
+    dir_out: str,
+    move: bool,
+    quiet: bool,
+    dry: bool,
+    format_fields: List[str],
+):
     assert (
         dir_in != dir_out
     ), f"Input directory {args.dir_in} and output directory {args.dir_out} have to differ!"
@@ -57,10 +91,13 @@ def sort_files(dir_in: str, dir_out: str, move: bool, quiet: bool, dry: bool):
     _print = (lambda *args: None) if quiet or dry else print
     copy_or_move = shutil.move if move else shutil.copyfile
 
+    formatter = build_formatter(format_fields)
+
     directories = set()
     for file_in in recursive_listdir(dir_in):
         directories.add(os.path.dirname(file_in))
 
+        # print(f"Read {file_in}")
         dcm = pydicom.dcmread(file_in, stop_before_pixels=True)
 
         patient_dir = f"{dcm.PatientName.family_name.lower()}_{dcm.PatientName.given_name.lower()}-{dcm.PatientID}"
@@ -68,11 +105,12 @@ def sort_files(dir_in: str, dir_out: str, move: bool, quiet: bool, dry: bool):
         if not os.path.exists(patient_dir):
             os.makedirs(patient_dir, exist_ok=True)
 
-        file_out = dcm.SeriesInstanceUID.replace(".", "_") + ".dcm"
+        # file_out = dcm.SeriesInstanceUID.replace(".", "_") + ".dcm"
+        file_out = formatter(file_in, dcm)
         file_out = os.path.join(patient_dir, file_out)
 
         if os.path.exists(file_out):
-            if not args.quiet:
+            if not quiet:
                 print(f"            Skip {file_out} because it already exists!")
 
             if move:
@@ -111,14 +149,26 @@ def add_args(parser: argparse.ArgumentParser):
         action="store_true",
         help="watch for changes to the input directory and re-run",
     )
+    parser.add_argument(
+        "--format",
+        nargs="*",
+        type=str,
+        help="provide DICOM fields to format output filenames - e.g. 'SeriesInstanceUID'; if not specified files are just moved to patient directories",
+    )
 
 
 def main(args):
+    # print(args.format)
     if args.dry:
         dry_methods()
 
     sort_files(
-        args.dir_in, args.dir_out, move=args.move, quiet=args.quiet, dry=args.dry
+        args.dir_in,
+        args.dir_out,
+        move=args.move,
+        quiet=args.quiet,
+        dry=args.dry,
+        format_fields=args.format,
     )
     if args.move and not args.dry:
         delete_empty_subdirectories(args.dir_in)
@@ -142,6 +192,7 @@ def main(args):
                     move=args.move,
                     quiet=args.quiet,
                     dry=args.dry,
+                    format_fields=args.format_fields,
                 )
 
         handler = EventHandler()
