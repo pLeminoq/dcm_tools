@@ -55,7 +55,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--node_yml",
         type=str,
-        default="data/dcm_nodes.yml",
+        default=".data/dcm_nodes.yml",
         help="file containing definitions of available DICOM nodes",
     )
     parser.add_argument(
