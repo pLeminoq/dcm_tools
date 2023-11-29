@@ -9,6 +9,7 @@ from termcolor import colored
 cmd_name = "diff"
 cmd_desc = "Show the difference of two DICOM headers"
 
+
 class DiffType(Enum):
     DIFFERENT = 1
     MISSING_L = 2
@@ -29,9 +30,9 @@ symbol_by_diff = {
 
 
 def format_str_len(_str: str, _len: int):
-    _str = _str if len(_str) < _len else _str[:(_len - 3)] + "..."
+    _str = _str if len(_str) < _len else _str[: (_len - 3)] + "..."
     return f"{_str:>{_len}}"
-    
+
 
 @dataclass
 class Diff:
@@ -55,6 +56,7 @@ class Diff:
         _str = f"{_str} │ {format_str_len(str_l, max_len_val)} │ {format_str_len(str_r, max_len_val)}"
         return colored(_str, color_by_diff[self.diff_type])
 
+
 def diff(dcm_l: pydicom.dataset.Dataset, dcm_r: pydicom.dataset.Dataset) -> List[Diff]:
     diffs = []
 
@@ -66,19 +68,50 @@ def diff(dcm_l: pydicom.dataset.Dataset, dcm_r: pydicom.dataset.Dataset) -> List
         if tag not in tags_l:
             elem = dcm_r[tag]
             if type(elem.value) == pydicom.sequence.Sequence:
-                diffs.append(Diff(diff_type=DiffType.MISSING_L, tag=tag, description=f"[{len(elem.value)}] " + elem.description(), value_l=None, value_r="-----"))
+                diffs.append(
+                    Diff(
+                        diff_type=DiffType.MISSING_L,
+                        tag=tag,
+                        description=f"[{len(elem.value)}] " + elem.description(),
+                        value_l=None,
+                        value_r="-----",
+                    )
+                )
             else:
-                diffs.append(Diff(diff_type=DiffType.MISSING_L, tag=tag, description=elem.description(), value_l=None, value_r=elem.value))
+                diffs.append(
+                    Diff(
+                        diff_type=DiffType.MISSING_L,
+                        tag=tag,
+                        description=elem.description(),
+                        value_l=None,
+                        value_r=elem.value,
+                    )
+                )
             continue
 
         if tag not in tags_r:
             elem = dcm_l[tag]
             if type(elem.value) == pydicom.sequence.Sequence:
-                diffs.append(Diff(diff_type=DiffType.MISSING_R, tag=tag, description=f"[{len(elem.value)}] " + elem.description(), value_l="-----", value_r=None))
+                diffs.append(
+                    Diff(
+                        diff_type=DiffType.MISSING_R,
+                        tag=tag,
+                        description=f"[{len(elem.value)}] " + elem.description(),
+                        value_l="-----",
+                        value_r=None,
+                    )
+                )
             else:
-                diffs.append(Diff(diff_type=DiffType.MISSING_R, tag=tag, description=elem.description(), value_l=elem.value, value_r=None))
+                diffs.append(
+                    Diff(
+                        diff_type=DiffType.MISSING_R,
+                        tag=tag,
+                        description=elem.description(),
+                        value_l=elem.value,
+                        value_r=None,
+                    )
+                )
             continue
-        
 
         elem_l = dcm_l[tag]
         elem_r = dcm_r[tag]
@@ -86,15 +119,40 @@ def diff(dcm_l: pydicom.dataset.Dataset, dcm_r: pydicom.dataset.Dataset) -> List
         if type(elem_l.value) == pydicom.sequence.Sequence:
             for i in range(max(len(elem_l.value), len(elem_r.value))):
                 if i > len(elem_l.value) - 1:
-                    diffs.append(Diff(diff_type=DiffType.MISSING_L, tag=tag, description=elem_l.description() + f" [{i}]", value_l=None, value_r="-----"))
+                    diffs.append(
+                        Diff(
+                            diff_type=DiffType.MISSING_L,
+                            tag=tag,
+                            description=elem_l.description() + f" [{i}]",
+                            value_l=None,
+                            value_r="-----",
+                        )
+                    )
                 elif i > len(elem_r.value) - 1:
-                    diffs.append(Diff(diff_type=DiffType.MISSING_R, tag=tag, description=elem_l.description() + f" [{i}]", value_l="-----", value_r=None))
+                    diffs.append(
+                        Diff(
+                            diff_type=DiffType.MISSING_R,
+                            tag=tag,
+                            description=elem_l.description() + f" [{i}]",
+                            value_l="-----",
+                            value_r=None,
+                        )
+                    )
                 else:
                     _diffs = diff(elem_l.value[i], elem_r.value[i])
                     if len(_diffs) == 0:
                         continue
 
-                    diffs.append(Diff(diff_type=DiffType.DIFFERENT, tag=tag, description=f"[{i}] " + elem_l.description(), value_l="-----", value_r="-----", prefix="┌"))
+                    diffs.append(
+                        Diff(
+                            diff_type=DiffType.DIFFERENT,
+                            tag=tag,
+                            description=f"[{i}] " + elem_l.description(),
+                            value_l="-----",
+                            value_r="-----",
+                            prefix="┌",
+                        )
+                    )
                     for i, _diff in enumerate(_diffs):
                         _diff.prefix = "└" if i == len(_diffs) - 1 else "├"
                     diffs.extend(_diffs)
@@ -103,28 +161,65 @@ def diff(dcm_l: pydicom.dataset.Dataset, dcm_r: pydicom.dataset.Dataset) -> List
         if elem_l.value == elem_r.value:
             continue
 
-        diffs.append(Diff(diff_type=DiffType.DIFFERENT, tag=tag, description=elem_l.description(), value_l=elem_l.value, value_r=elem_r.value))
+        diffs.append(
+            Diff(
+                diff_type=DiffType.DIFFERENT,
+                tag=tag,
+                description=elem_l.description(),
+                value_l=elem_l.value,
+                value_r=elem_r.value,
+            )
+        )
     return diffs
+
 
 def add_args(parser: argparse.ArgumentParser):
     parser.add_argument("file_left", type=str, help="the left file for the diff")
     parser.add_argument("file_right", type=str, help="the right file for the diff")
-    parser.add_argument("--len_col_tag", type=int, default=50, help="maximum length of printed tags")
-    parser.add_argument("--len_col_val", type=int, default=70, help="maximum length of printed values")
+    parser.add_argument(
+        "--len_col_tag", type=int, default=50, help="maximum length of printed tags"
+    )
+    parser.add_argument(
+        "--len_col_val", type=int, default=70, help="maximum length of printed values"
+    )
+
 
 def main(args):
     dcm_l = pydicom.dcmread(args.file_left)
     dcm_r = pydicom.dcmread(args.file_right)
 
+    diffs_meta = diff(dcm_l.file_meta, dcm_r.file_meta)
     diffs = diff(dcm_l, dcm_r)
 
     # print header
     _str = f"  {'Tag':>{args.len_col_tag}} │ {'Left':>{args.len_col_val}} │ {'Right':>{args.len_col_val}}"
     print(_str)
-    _str = "──" + ("─" * args.len_col_tag) + "─┼─" + ("─" * args.len_col_val) + "─┼─" + ("─" * args.len_col_val)
+    _str = (
+        "──"
+        + ("─" * args.len_col_tag)
+        + "─┼─"
+        + ("─" * args.len_col_val)
+        + "─┼─"
+        + ("─" * args.len_col_val)
+    )
     print(_str)
 
-    # print(diffs)
+    # print diffs in file meta
+    for _diff in diffs_meta:
+        print(str(_diff))
+
+    # print separator
+    _str = (
+        "──"
+        + ("─" * args.len_col_tag)
+        + "─┼─"
+        + ("─" * args.len_col_val)
+        + "─┼─"
+        + ("─" * args.len_col_val)
+    )
+    print(_str)
+
+    # print diffs
     for _diff in diffs:
         print(str(_diff))
 
