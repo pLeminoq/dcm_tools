@@ -43,11 +43,26 @@ def list_files_recursive(filename: str) -> List[str]:
     return files
 
 
-def generate_pseudonym(prefix: str = "ANONYM_", k: int = 12) -> str:
+class PseudonymGenerator:
     """
-    Generate a pseudonym.
+    Abstract base class for a pseudonym generator.
 
-    The pseudonym has the format {prefix}{[A-Z0-9]**k}
+    Calling the generator will generate a new pseudonym.
+    A prefix for the generated pseudonyms can be specified.
+    """
+
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+
+    def __call__(self) -> str:
+        raise NotImplementedError("Abstract base class")
+
+
+class RandomPseudonymGenerator(PseudonymGenerator):
+    """
+    Generator for random pseudonyms.
+
+    Pseudonyms have the format {prefix}{[A-Z0-9]**k}
 
     Parameters
     ----------
@@ -55,13 +70,47 @@ def generate_pseudonym(prefix: str = "ANONYM_", k: int = 12) -> str:
         a prefix added to the generated pseudonym
     k: int
         the number of random uppercase letters and digits the pseudonym should consist of
-
-    Returns
-    -------
-    str
     """
-    _id = "".join(random.choices(string.ascii_uppercase + string.digits, k=k))
-    return f"{prefix}{_id}"
+
+    def __init__(self, prefix: str = "ANONYM_", k: int = 12):
+        super().__init__(prefix)
+
+        self.k = k
+
+    def __call__(self) -> str:
+        _id = "".join(random.choices(string.ascii_uppercase + string.digits, k=self.k))
+        return f"{self.prefix}{_id}"
+
+
+class OrderedPseudonymGenerator(PseudonymGenerator):
+    """
+    Generator for ordered pseudonyms.
+
+    Pseudonyms have the format {prefix}{idx:0{leading_zeros}d}
+
+    Parameters
+    ----------
+    prefix: str
+        a prefix added to the generated pseudonym
+    start_idx: int
+        the starting number for pseudonym generation
+    leading_zeros: int
+        the number of leading zeros added to pseudonym numbers
+    """
+
+    def __init__(
+        self, prefix: str = "ANONYM_", start_idx: int = 1, leading_zeros: int = 3
+    ):
+        super().__init__(prefix)
+
+        self.idx = start_idx
+        self.leading_zeros = leading_zeros
+
+    def __call__(self) -> str:
+        print(f"Call {self.idx}")
+        pseudonym = f"{self.prefix}{self.idx:0{self.leading_zeros}d}"
+        self.idx += 1
+        return pseudonym
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -114,7 +163,21 @@ def add_args(parser: argparse.ArgumentParser):
         help="prefix for the generated pseudonyms",
     )
     parser.add_argument(
-        "--pseudo_len", type=int, default=12, help="length of the generated pseudonym"
+        "--numbered_pseudonym",
+        action="store_true",
+        help="do not generate a random pseudonym but continuous numbers",
+    )
+    parser.add_argument(
+        "--pseudo_len",
+        type=int,
+        default=12,
+        help="length of the generated pseudonym (if not <numbered_pseudonym>)",
+    )
+    parser.add_argument(
+        "--leading_zeros",
+        type=int,
+        default=3,
+        help="number of leading zeros (if <numbered_pseudonym>)",
     )
     parser.add_argument(
         "--keep_private_tags",
@@ -152,12 +215,19 @@ def main(args):
     id_dict = IdentifierDict()
 
     # store pseudonym generation function with given parameters
-    _generate_pseudo = lambda: generate_pseudonym(
-        prefix=args.pseudo_prefix, k=args.pseudo_len
+    pseudonym_generator = (
+        OrderedPseudonymGenerator(
+            prefix=args.pseudo_prefix, leading_zeros=args.leading_zeros
+        )
+        if args.numbered_pseudonym
+        else RandomPseudonymGenerator(prefix=args.pseudo_prefix, k=args.pseudo_len)
     )
 
+    print(f"Args.keep: {args.keep}")
+    print(args)
+    _keep = [] if args.keep is None else args.keep
     tags_to_keep = []
-    for tag in args.keep:
+    for tag in _keep:
         assert tag.startswith(
             "0x"
         ), f"Tag {tag} is not in hex notation. Please use a hex Notation (e.g. 0x00010002) to define tags"
@@ -192,7 +262,8 @@ def main(args):
 
         # generate or retrieve pseudonym for patient id
         pid = dcm.PatientID
-        pseudo_by_pid[pid] = pseudo_by_pid.get(pid, _generate_pseudo())
+        if pid not in pseudo_by_pid:
+            pseudo_by_pid[pid] = pseudonym_generator()
         pseudo_pid = pseudo_by_pid[pid]
 
         # create pseudonymized DICOM file
