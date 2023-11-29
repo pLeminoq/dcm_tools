@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description="DICOM tools", formatter_class=argp
 subparsers = parser.add_subparsers(required=True)
 
 for cmd in cmds:
-    _parser = subparsers.add_parser(cmd.cmd_name, description=cmd.cmd_desc)
+    _parser = subparsers.add_parser(cmd.cmd_name, description=cmd.cmd_desc, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     cmd.add_args(_parser)
     _parser.set_defaults(func=cmd.main)
 
